@@ -7,7 +7,7 @@ from embed import EmbedLoad
 
 
 def load_embeds(input_file, dimension):
-    x = EmbedLoad(input_file, dimension, verbose=True)
+    x = EmbedLoad(input_file, dimension, verbose=False)
     faiss.normalize_L2(x)
     return x
 
