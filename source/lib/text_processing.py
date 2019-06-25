@@ -134,10 +134,10 @@ def BPEfastApply(inp_fname, out_fname, bpe_codes,
         if not os.path.isfile(bpe_vocab):
             print(' - fast BPE: focab file not found {}'.format(bpe_vocab))
             bpe_vocab = ''
-        run(FASTBPE + ' applybpe '
-            + out_fname + ' ' + inp_fname
-            + ' ' + bpe_codes
-            + ' ' + bpe_vocab, shell=True, stderr=DEVNULL)
+        cmd = FASTBPE + ' applybpe ' + out_fname + ' ' + inp_fname + ' ' + bpe_codes + ' ' + bpe_vocab
+        if verbose:
+            print(cmd)
+        run(cmd, shell=True, stderr=DEVNULL)
     elif not over_write and verbose:
         print(' - fast BPE: {} exists already'
               .format(os.path.basename(out_fname)))
