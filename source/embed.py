@@ -359,7 +359,7 @@ if __name__ == '__main__':
                               sort_kind='mergesort' if args.stable else 'quicksort',
                               cpu=args.cpu)
 
-    tmpdir = args.tmp_dir if args.tmp_dir else tempfile.TemporaryDirectory()
+    tmpdir = args.tmp_dir if args.tmp_dir else tempfile.mkdtemp()
     ifname = ''  # stdin will be used
     if args.token_lang != '--':
         tok_fname = os.path.join(tmpdir, 'tok')
