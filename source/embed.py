@@ -23,6 +23,7 @@ import sys
 import time
 import argparse
 import numpy as np
+import shutil
 from collections import namedtuple
 
 import torch
@@ -331,7 +332,6 @@ if __name__ == '__main__':
         help='Apply BPE using specified codes')
     parser.add_argument('-v', '--verbose', action='store_true',
         help='Detailed output')
-
     parser.add_argument('-o', '--output', required=True,
         help='Output sentence embeddings')
     parser.add_argument('--buffer-size', type=int, default=10000,
@@ -344,6 +344,7 @@ if __name__ == '__main__':
         help='Use CPU instead of GPU')
     parser.add_argument('--stable', action='store_true',
         help='Use stable merge sort instead of quick sort')
+    parser.add_argument('--tmp_dir', default=None)
     args = parser.parse_args()
 
     args.buffer_size = max(args.buffer_size, 1)
@@ -358,28 +359,30 @@ if __name__ == '__main__':
                               sort_kind='mergesort' if args.stable else 'quicksort',
                               cpu=args.cpu)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ifname = ''  # stdin will be used
-        if args.token_lang != '--':
-            tok_fname = os.path.join(tmpdir, 'tok')
-            Token(ifname,
-                  tok_fname,
-                  lang=args.token_lang,
-                  romanize=True if args.token_lang == 'el' else False,
-                  lower_case=True, gzip=False,
-                  verbose=args.verbose, over_write=False)
-            ifname = tok_fname
+    tmpdir = args.tmp_dir if args.tmp_dir else tempfile.TemporaryDirectory()
+    ifname = ''  # stdin will be used
+    if args.token_lang != '--':
+        tok_fname = os.path.join(tmpdir, 'tok')
+        Token(ifname,
+              tok_fname,
+              lang=args.token_lang,
+              romanize=True if args.token_lang == 'el' else False,
+              lower_case=True, gzip=False,
+              verbose=args.verbose, over_write=False)
+        ifname = tok_fname
 
-        if args.bpe_codes:
-            bpe_fname = os.path.join(tmpdir, 'bpe')
-            BPEfastApply(ifname,
-                         bpe_fname,
-                         args.bpe_codes,
-                         verbose=args.verbose, over_write=False)
-            ifname = bpe_fname
+    if args.bpe_codes:
+        bpe_fname = os.path.join(tmpdir, 'bpe')
+        BPEfastApply(ifname,
+                     bpe_fname,
+                     args.bpe_codes,
+                     verbose=args.verbose, over_write=False)
+        ifname = bpe_fname
 
-        EncodeFile(encoder,
-                   ifname,
-                   args.output,
-                   verbose=args.verbose, over_write=False,
-                   buffer_size=args.buffer_size) 
+    EncodeFile(encoder,
+               ifname,
+               args.output,
+               verbose=args.verbose, over_write=False,
+               buffer_size=args.buffer_size)
+    if not args.tmp_dir:
+        shutil.rmtree(tmpdir)
