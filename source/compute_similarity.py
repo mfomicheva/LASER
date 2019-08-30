@@ -20,7 +20,7 @@ def main():
     args = parser.parse_args()
     src_embeds = load_embeds(args.source_embeds, args.dim)
     tgt_embeds = load_embeds(args.target_embeds, args.dim)
-    assert len(src_embeds) == len(tgt_embeds)
+    assert src_embeds.shape[0] == tgt_embeds.shape[0]
     scores = []
     for s_emb, t_emb in zip(src_embeds, tgt_embeds):
         scores.append(s_emb.dot(t_emb))
