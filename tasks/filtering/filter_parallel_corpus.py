@@ -103,7 +103,7 @@ def main():
     parser.add_argument('--encoder')
     parser.add_argument('--bpe_codes')
     parser.add_argument('--output_pref')
-    parser.add_argument('--buffer_size', default=10000, type=int, required=False)
+    parser.add_argument('--buffer_size', default=10, type=int, required=False)
     parser.add_argument('--max_tokens', default=1200, type=int, required=False)
     parser.add_argument('--cpu', default=True, type=bool, required=False)
     parser.add_argument('--tmpdir', default=None, type=str, required=False)
@@ -131,11 +131,16 @@ def main():
         faiss.normalize_L2(src_embs)
         faiss.normalize_L2(tgt_embs)
         sim_scores = np.einsum('ij,ij->i', src_embs, tgt_embs)
-        indexed_data = {batch_id + k: (src_sents[k], tgt_sents[k], sim_scores[k]) for k in range(min(args.buffer_size, len(src_sents)))}
+        indexed_data = {
+            len(src_sents) * batch_id + k: (src_sents[k], tgt_sents[k], sim_scores[k]) for k in range(len(src_sents))
+        }
         clean_indexes, filtered_indexes, errors = clean_sentences(indexed_data, args.src_lang, args.tgt_lang)
         clean_indexes.tofile(out_clean_idx)
         filtered_indexes.tofile(out_filtered_idx)
         errors.tofile(out_errors)
+        batch_id += 1
+        print(batch_id)
+
     if not args.tmpdir:
         shutil.rmtree(tmpdir)
     write_segments_by_index(
