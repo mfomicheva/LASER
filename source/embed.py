@@ -276,11 +276,11 @@ def EncodeTime(t):
         print(' in {:d}m{:d}s'.format(t // 60, t % 60))
 
 # Encode sentences (existing file pointers)
-def EncodeFilep(encoder, inp_file, out_file, buffer_size=10000, verbose=False):
+def EncodeFilep(encoder, inp_file, out_file, buffer_size=10000, verbose=False, line_sep=''):
     n = 0
     t = time.time()
     for sentences in buffered_read(inp_file, buffer_size):
-        encoder.encode_sentences(sentences).tofile(out_file)
+        encoder.encode_sentences(sentences).tofile(out_file, sep=line_sep)
         n += len(sentences)
         if verbose and n % 10000 == 0:
             print('\r - Encoder: {:d} sentences'.format(n), end='')
@@ -291,7 +291,7 @@ def EncodeFilep(encoder, inp_file, out_file, buffer_size=10000, verbose=False):
 # Encode sentences (file names)
 def EncodeFile(encoder, inp_fname, out_fname,
               buffer_size=10000, verbose=False, over_write=False,
-              inp_encoding='utf-8'):
+              inp_encoding='utf-8', line_sep=''):
     # TODO :handle over write
     if not os.path.isfile(out_fname):
         if verbose:
@@ -300,7 +300,7 @@ def EncodeFile(encoder, inp_fname, out_fname,
                          os.path.basename(out_fname)))
         fin = open(inp_fname, 'r', encoding=inp_encoding, errors='surrogateescape') if len(inp_fname) > 0 else sys.stdin
         fout = open(out_fname, mode='wb')
-        EncodeFilep(encoder, fin, fout, buffer_size=buffer_size, verbose=verbose)
+        EncodeFilep(encoder, fin, fout, buffer_size=buffer_size, verbose=verbose, line_sep=line_sep)
         fin.close()
         fout.close()
     elif not over_write and verbose:
@@ -345,6 +345,7 @@ if __name__ == '__main__':
     parser.add_argument('--stable', action='store_true',
         help='Use stable merge sort instead of quick sort')
     parser.add_argument('--tmp_dir', default=None)
+    parser.add_argument('--line_sep', default='')
     args = parser.parse_args()
 
     args.buffer_size = max(args.buffer_size, 1)
@@ -383,6 +384,7 @@ if __name__ == '__main__':
                ifname,
                args.output,
                verbose=args.verbose, over_write=False,
-               buffer_size=args.buffer_size)
+               buffer_size=args.buffer_size,
+               line_sep=args.line_sep)
     if not args.tmp_dir:
         shutil.rmtree(tmpdir)
