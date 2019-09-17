@@ -103,7 +103,7 @@ def main():
     parser.add_argument('--encoder')
     parser.add_argument('--bpe_codes')
     parser.add_argument('--output_pref')
-    parser.add_argument('--buffer_size', default=10, type=int, required=False)
+    parser.add_argument('--buffer_size', default=10000, type=int, required=False)
     parser.add_argument('--max_tokens', default=1200, type=int, required=False)
     parser.add_argument('--cpu', default=True, type=bool, required=False)
     parser.add_argument('--tmpdir', default=None, type=str, required=False)
@@ -139,7 +139,6 @@ def main():
         filtered_indexes.tofile(out_filtered_idx)
         errors.tofile(out_errors)
         batch_id += 1
-        print(batch_id)
 
     if not args.tmpdir:
         shutil.rmtree(tmpdir)
