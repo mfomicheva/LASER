@@ -139,6 +139,8 @@ def main():
         filtered_indexes.tofile(out_filtered_idx)
         errors.tofile(out_errors)
         batch_id += 1
+        if batch_id % 100:
+            print('Processed %d batches' % batch_id)
 
     if not args.tmpdir:
         shutil.rmtree(tmpdir)
