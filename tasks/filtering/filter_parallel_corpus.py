@@ -152,7 +152,7 @@ def main():
     all_indexes_clean = np.fromfile(args.output_pref + '.idx_clean', dtype=int)
     write_segments_by_index(args.src_file, args.output_pref + '.clean.%s' % args.src_lang, all_indexes_clean)
     write_segments_by_index(args.tgt_file, args.output_pref + '.clean.%s' % args.tgt_lang, all_indexes_clean)
-    json.dump(filtered, open(args.output_pref + '.idx_filtered', 'wb'))
+    json.dump(filtered, open(args.output_pref + '.idx_filtered', 'w'))
 
     if args.debug:
         write_filtered_segments(args.src_file, args.tgt_file, args.output_pref, filtered)
