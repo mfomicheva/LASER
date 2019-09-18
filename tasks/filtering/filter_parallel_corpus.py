@@ -96,15 +96,17 @@ def _write_segments_by_index(src_path, tgt_path, output_pref, src_lang, tgt_lang
 
 def write_filtered_segments(src_file, tgt_file, out_pref, indexes_filtered, errors):
     counter = 0
+    current_counter = 0
     out_fh = open(out_pref + '.filtered_segments', 'w')
     for src_line, tgt_line in zip(open(src_file), open(tgt_file)):
         if counter in indexes_filtered:
             out = ' ||| '.join([
                 src_line.strip(),
                 tgt_line.strip(),
-                str(errors[counter])
+                str(errors[current_counter])
             ])
             out_fh.write('{}\n'.format(out))
+            current_counter += 1
         counter += 1
 
 
