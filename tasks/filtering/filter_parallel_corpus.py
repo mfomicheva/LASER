@@ -1,12 +1,13 @@
 import argparse
 import json
 import faiss
-import langid
 import numpy as np
 import os
 import shutil
 import sys
 import tempfile
+
+from langid.langid import LanguageIdentifier, model
 
 assert os.environ.get('LASER'), 'Please set the enviornment variable LASER'
 LASER = os.environ['LASER']
@@ -26,6 +27,8 @@ ERROR_TYPES = {
     'LANGID': 2,
     'OVERLAP': 3,
 }
+
+LANGID = LanguageIdentifier.from_modelstring(model, norm_probs=True)
 
 
 def prepare_data(infile, tmpdir, token_lang, bpe_codes, verbose=False):
@@ -51,7 +54,7 @@ def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang):
     for src, tgt in zip(open(src_file_tok), open(tgt_file_tok)):
         if len(src) == 0 or len(tgt) == 0:
             filtered[counter] = ERROR_TYPES['EMPTY']
-        elif detect_lang(src) != src_lang or detect_lang(tgt) != tgt_lang:
+        elif wrong_language(src, src_lang) or wrong_language(tgt, tgt_lang):
             filtered[counter] = ERROR_TYPES['LANGID']
         elif compute_overlap(src, tgt) > 0.6:
             filtered[counter] = ERROR_TYPES['OVERLAP']
@@ -61,8 +64,12 @@ def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang):
     return filtered
 
 
-def detect_lang(seg):
-    return langid.classify(seg)[0]
+def wrong_language(seg, lang):
+    pred, proba = LANGID.classify(seg)
+    if proba > 0.9 and pred != lang:
+        return True
+    else:
+        return False
 
 
 def compute_overlap(src, tgt):
