@@ -48,10 +48,12 @@ def prepare_data(infile, tmpdir, token_lang, bpe_codes, verbose=False):
     return tok_fname, bpe_fname
 
 
-def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang):
+def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang):  # TODO: ignore strings consisting mostly of numbers
     filtered = {}
     counter = 0
     for src, tgt in zip(open(src_file_tok), open(tgt_file_tok)):
+        if all_symbols(src.split()) or all_symbols(tgt.split()):
+            continue
         if len(src) == 0 or len(tgt) == 0:
             filtered[counter] = ERROR_TYPES['EMPTY']
         elif wrong_language(src, src_lang) or wrong_language(tgt, tgt_lang):
@@ -72,23 +74,24 @@ def wrong_language(seg, lang):
         return False
 
 
-def compute_overlap(src, tgt):
-    set1 = set(src.split())
-    set2 = set(tgt.split())
-    set1 = filter_symbols(set1)
-    set2 = filter_symbols(set2)
-    if set1 and set2:
-        return len(set1.intersection(set2)) / len(set1.union(set2))
-    else:
-        return 0.
-
-
-def filter_symbols(tokens):
+def all_symbols(tokens):
     abc_toks = set()
     for tok in tokens:
         if all(chr.isalpha() for chr in tok):
             abc_toks.add(tok)
-    return abc_toks
+    if tokens and len(abc_toks) / len(tokens) < 0.7:
+        return True
+    else:
+        return False
+
+
+def compute_overlap(src, tgt):
+    set1 = set(src.split())
+    set2 = set(tgt.split())
+    if set1 and set2:
+        return len(set1.intersection(set2)) / len(set1.union(set2))
+    else:
+        return 0.
 
 
 def write_filtered_segments(src_file, tgt_file, out_pref, filtered):
@@ -157,7 +160,7 @@ def main():
             index = len(src_sents) * batch_id + k
             if index in filtered:
                 continue
-            if score < args.threshold:
+            if score < args.threshold and not all_symbols(src_sents[k].split()) and not all_symbols(tgt_sents[k].split()):
                 filtered[index] = ERROR_TYPES['LASER']
             else:
                 batch_clean_indexes.append(index)
@@ -180,6 +183,7 @@ def main():
     # TODO: to train the classifier, add missing / added operation
     # TODO: positive and negative data should not be the same
     # TODO: add length ratio
+    # TODO: ignore segments where > 80% are not alphanum
 
 
 if __name__ == '__main__':
