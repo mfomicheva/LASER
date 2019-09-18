@@ -1,4 +1,5 @@
 import argparse
+import json
 import faiss
 import langid
 import numpy as np
@@ -41,7 +42,23 @@ def prepare_data(infile, tmpdir, token_lang, bpe_codes, verbose=False):
                  bpe_fname,
                  bpe_codes,
                  verbose=verbose, over_write=False)
-    return bpe_fname
+    return tok_fname, bpe_fname
+
+
+def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang):
+    filtered = {}
+    counter = 0
+    for src, tgt in zip(open(src_file_tok), open(tgt_file_tok)):
+        if len(src) == 0 or len(tgt) == 0:
+            filtered[counter] = ERROR_TYPES['EMPTY']
+        elif detect_lang(src) != src_lang or detect_lang(tgt) != tgt_lang:
+            filtered[counter] = ERROR_TYPES['LANGID']
+        elif compute_overlap(src, tgt) > 0.6:
+            filtered[counter] = ERROR_TYPES['OVERLAP']
+        else:
+            pass
+        counter += 1
+    return filtered
 
 
 def detect_lang(seg):
@@ -54,59 +71,17 @@ def compute_overlap(src, tgt):
     return len(set1.intersection(set2))/ len(set1.union(set2))
 
 
-def clean_sentences(data, src_lang, tgt_lang, threshold=0.85):
-    clean_indexes = []
-    filtered_indexes = []
-    errors = []
-    for i, (src, tgt, score) in data.items():
-        if len(src) == 0 or len(tgt) == 0:
-            errors.append(ERROR_TYPES['EMPTY'])
-            filtered_indexes.append(i)
-            continue
-        elif score < threshold:
-            errors.append(ERROR_TYPES['LASER'])
-            filtered_indexes.append(i)
-            continue
-        elif detect_lang(src) != src_lang or detect_lang(tgt) != tgt_lang:
-            errors.append(ERROR_TYPES['LANGID'])
-            filtered_indexes.append(i)
-            continue
-        elif compute_overlap(src, tgt) > 0.6:
-            errors.append(ERROR_TYPES['OVERLAP'])
-            filtered_indexes.append(i)
-            continue
-        else:
-            clean_indexes.append(i)
-    return np.asarray(clean_indexes, dtype=int), np.asarray(filtered_indexes, dtype=int), np.asarray(errors, dtype=int)
-
-
-def _write_segments_by_index(src_path, tgt_path, output_pref, src_lang, tgt_lang):
-    src_fh = open(output_pref + '.clean.%s' % src_lang, 'w')
-    tgt_fh = open(output_pref + '.clean.%s' % tgt_lang, 'w')
-    indexes = np.fromfile(output_pref + '.idx_clean', dtype=int)
+def write_filtered_segments(src_file, tgt_file, out_pref, filtered):
     counter = 0
-    for src_line, tgt_line in zip(open(src_path), open(tgt_path)):
-        if counter in indexes:
-            src_fh.write('{}\n'.format(src_line.strip()))
-            tgt_fh.write('{}\n'.format(tgt_line.strip()))
-        counter += 1
-    src_fh.close()
-    tgt_fh.close()
-
-
-def write_filtered_segments(src_file, tgt_file, out_pref, indexes_filtered, errors):
-    counter = 0
-    current_counter = 0
     out_fh = open(out_pref + '.filtered_segments', 'w')
     for src_line, tgt_line in zip(open(src_file), open(tgt_file)):
-        if counter in indexes_filtered:
+        if counter in filtered:
             out = ' ||| '.join([
                 src_line.strip(),
                 tgt_line.strip(),
-                str(errors[current_counter])
+                str(filtered[counter])
             ])
             out_fh.write('{}\n'.format(out))
-            current_counter += 1
         counter += 1
 
 
@@ -134,6 +109,7 @@ def main():
     parser.add_argument('--tmpdir', default=None, type=str, required=False)
     parser.add_argument('--verbose', default=False, action='store_true', required=False)
     parser.add_argument('--debug', default=False, action='store_true', required=False)
+    parser.add_argument('--threshold', default=0.85, type=float, required=False)
     args = parser.parse_args()
     encoder = SentenceEncoder(
         args.encoder,
@@ -142,13 +118,12 @@ def main():
         cpu=args.cpu
     )
     tmpdir = args.tmpdir if args.tmpdir else tempfile.mkdtemp()
-    src_bpe_file = prepare_data(args.src_file, tmpdir, args.src_lang, args.bpe_codes, verbose=args.verbose)
-    tgt_bpe_file = prepare_data(args.tgt_file, tmpdir, args.tgt_lang, args.bpe_codes, verbose=args.verbose)
+    src_tok_file, src_bpe_file = prepare_data(args.src_file, tmpdir, args.src_lang, args.bpe_codes, verbose=args.verbose)
+    tgt_tok_file, tgt_bpe_file = prepare_data(args.tgt_file, tmpdir, args.tgt_lang, args.bpe_codes, verbose=args.verbose)
+    filtered = clean_data_discrete(src_tok_file, tgt_tok_file, args.src_lang, args.tgt_lang)
     src_fh = open(src_bpe_file)
     tgt_fh = open(tgt_bpe_file)
     out_clean_idx = open(args.output_pref + '.idx_clean', 'wb')
-    out_filtered_idx = open(args.output_pref + '.idx_filtered', 'wb')
-    out_errors = open(args.output_pref + '.errors', 'wb')
     batch_id = 0
     for src_sents, tgt_sents in zip(
             buffered_read(src_fh, args.buffer_size), buffered_read(tgt_fh, args.buffer_size)):
@@ -157,13 +132,17 @@ def main():
         faiss.normalize_L2(src_embs)
         faiss.normalize_L2(tgt_embs)
         sim_scores = np.einsum('ij,ij->i', src_embs, tgt_embs)
-        indexed_data = {
-            len(src_sents) * batch_id + k: (src_sents[k], tgt_sents[k], sim_scores[k]) for k in range(len(src_sents))
-        }
-        clean_indexes, filtered_indexes, errors = clean_sentences(indexed_data, args.src_lang, args.tgt_lang)
-        clean_indexes.tofile(out_clean_idx)
-        filtered_indexes.tofile(out_filtered_idx)
-        errors.tofile(out_errors)
+        batch_clean_indexes = []
+        for k, score in enumerate(sim_scores):
+            index = len(src_sents) * batch_id + k
+            if index in filtered:
+                continue
+            if score < args.threshold:
+                filtered[index] = ERROR_TYPES['LASER']
+            else:
+                batch_clean_indexes.append(index)
+        batch_clean_indexes = np.asarray(batch_clean_indexes, dtype=int)
+        batch_clean_indexes.tofile(out_clean_idx)
         batch_id += 1
         if batch_id % 100:
             print('Processed %d batches' % batch_id)
@@ -173,10 +152,10 @@ def main():
     all_indexes_clean = np.fromfile(args.output_pref + '.idx_clean', dtype=int)
     write_segments_by_index(args.src_file, args.output_pref + '.clean.%s' % args.src_lang, all_indexes_clean)
     write_segments_by_index(args.tgt_file, args.output_pref + '.clean.%s' % args.tgt_lang, all_indexes_clean)
+    json.dump(filtered, open(args.output_pref + '.idx_filtered', 'wb'))
+
     if args.debug:
-        all_indexes_filtered = np.fromfile(args.output_pref + '.idx_filtered', dtype=int)
-        all_errors = np.fromfile(args.output_pref + '.errors', dtype=int)
-        write_filtered_segments(args.src_file, args.tgt_file, args.output_pref, all_indexes_filtered, all_errors)
+        write_filtered_segments(args.src_file, args.tgt_file, args.output_pref, filtered)
 
     # TODO: to train the classifier, add missing / added operation
     # TODO: positive and negative data should not be the same
