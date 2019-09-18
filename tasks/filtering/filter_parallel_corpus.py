@@ -80,7 +80,7 @@ def clean_sentences(data, src_lang, tgt_lang, threshold=0.85):
     return np.asarray(clean_indexes, dtype=int), np.asarray(filtered_indexes, dtype=int), np.asarray(errors, dtype=int)
 
 
-def write_segments_by_index(src_path, tgt_path, output_pref, src_lang, tgt_lang):
+def _write_segments_by_index(src_path, tgt_path, output_pref, src_lang, tgt_lang):
     src_fh = open(output_pref + '.clean.%s' % src_lang, 'w')
     tgt_fh = open(output_pref + '.clean.%s' % tgt_lang, 'w')
     indexes = np.fromfile(output_pref + '.idx_clean', dtype=int)
@@ -92,6 +92,29 @@ def write_segments_by_index(src_path, tgt_path, output_pref, src_lang, tgt_lang)
         counter += 1
     src_fh.close()
     tgt_fh.close()
+
+
+def write_filtered_segments(src_file, tgt_file, out_pref, indexes_filtered, errors):
+    counter = 0
+    out_fh = open(out_pref + '.filtered_segments', 'w')
+    for src_line, tgt_line in zip(open(src_file), open(tgt_file)):
+        if counter in indexes_filtered:
+            out = ' ||| '.join([
+                src_line.strip(),
+                tgt_line.strip(),
+                str(errors[counter])
+            ])
+            out_fh.write('{}\n'.format(out))
+        counter += 1
+
+
+def write_segments_by_index(inpath, outpath, indexes):
+    outf = open(outpath, 'w')
+    counter = 0
+    for line in open(inpath):
+        if counter in indexes:
+            outf.write('{}\n'.format(line.strip()))
+        counter += 1
 
 
 def main():
@@ -108,6 +131,7 @@ def main():
     parser.add_argument('--cpu', default=True, type=bool, required=False)
     parser.add_argument('--tmpdir', default=None, type=str, required=False)
     parser.add_argument('--verbose', default=False, action='store_true', required=False)
+    parser.add_argument('--debug', default=False, action='store_true', required=False)
     args = parser.parse_args()
     encoder = SentenceEncoder(
         args.encoder,
@@ -144,8 +168,13 @@ def main():
 
     if not args.tmpdir:
         shutil.rmtree(tmpdir)
-    write_segments_by_index(
-        args.src_file, args.tgt_file, args.output_pref, args.src_lang, args.tgt_lang)
+    all_indexes_clean = np.fromfile(args.output_pref + '.idx_clean', dtype=int)
+    write_segments_by_index(args.src_file, args.output_pref + '.clean.%s' % args.src_lang, all_indexes_clean)
+    write_segments_by_index(args.tgt_file, args.output_pref + '.clean.%s' % args.tgt_lang, all_indexes_clean)
+    if args.debug:
+        all_indexes_filtered = np.fromfile(args.output_pref + '.idx_filtered', dtype=int)
+        all_errors = np.fromfile(args.output_pref + '.errors', dtype=int)
+        write_filtered_segments(args.src_file, args.tgt_file, args.output_pref, all_indexes_filtered, all_errors)
 
     # TODO: to train the classifier, add missing / added operation
     # TODO: positive and negative data should not be the same
