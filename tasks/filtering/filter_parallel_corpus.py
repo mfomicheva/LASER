@@ -75,7 +75,20 @@ def wrong_language(seg, lang):
 def compute_overlap(src, tgt):
     set1 = set(src.split())
     set2 = set(tgt.split())
-    return len(set1.intersection(set2))/ len(set1.union(set2))
+    set1 = filter_symbols(set1)
+    set2 = filter_symbols(set2)
+    if set1 and set2:
+        return len(set1.intersection(set2)) / len(set1.union(set2))
+    else:
+        return 0.
+
+
+def filter_symbols(tokens):
+    abc_toks = set()
+    for tok in tokens:
+        if all(chr.isalpha() for chr in tok):
+            abc_toks.add(tok)
+    return abc_toks
 
 
 def write_filtered_segments(src_file, tgt_file, out_pref, filtered):
