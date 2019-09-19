@@ -185,7 +185,7 @@ def main():
     # TODO: to train the classifier, add missing / added operation
     # TODO: positive and negative data should not be the same
     # TODO: add length ratio
-    # TODO: ignore segments where > 80% are not alphanum
+    # TODO: when > 80% segments are not alpha compute character distance
 
 
 if __name__ == '__main__':
