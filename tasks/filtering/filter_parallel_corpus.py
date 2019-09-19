@@ -75,11 +75,12 @@ def wrong_language(seg, lang):
 
 
 def all_symbols(tokens):
+    unique_tokens = set(tokens)
     abc_toks = set()
-    for tok in tokens:
+    for tok in unique_tokens:
         if all(chr.isalpha() for chr in tok):
             abc_toks.add(tok)
-    if tokens and len(abc_toks) / len(tokens) < 0.7:
+    if tokens and len(abc_toks) / len(unique_tokens) < 0.7:
         return True
     else:
         return False
