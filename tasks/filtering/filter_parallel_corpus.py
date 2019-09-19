@@ -48,7 +48,7 @@ def prepare_data(infile, tmpdir, token_lang, bpe_codes, verbose=False):
     return tok_fname, bpe_fname
 
 
-def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang):  # TODO: ignore strings consisting mostly of numbers
+def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang, langid=False, overlap=False):  # TODO: ignore strings consisting mostly of numbers
     filtered = {}
     counter = 0
     for src, tgt in zip(open(src_file_tok), open(tgt_file_tok)):
@@ -56,9 +56,9 @@ def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang):  # TODO
             continue
         if len(src) == 0 or len(tgt) == 0:
             filtered[counter] = ERROR_TYPES['EMPTY']
-        elif wrong_language(src, src_lang) or wrong_language(tgt, tgt_lang):
+        elif langid and (wrong_language(src, src_lang) or wrong_language(tgt, tgt_lang)):
             filtered[counter] = ERROR_TYPES['LANGID']
-        elif compute_overlap(src, tgt) > 0.6:
+        elif overlap and compute_overlap(src, tgt) > 0.6:
             filtered[counter] = ERROR_TYPES['OVERLAP']
         else:
             pass
@@ -133,6 +133,8 @@ def main():
     parser.add_argument('--verbose', default=False, action='store_true', required=False)
     parser.add_argument('--debug', default=False, action='store_true', required=False)
     parser.add_argument('--threshold', default=0.85, type=float, required=False)
+    parser.add_argument('--langid', default=False, action='store_true', required=False)
+    parser.add_argument('--overlap', default=False, action='store_true', required=False)
     args = parser.parse_args()
     encoder = SentenceEncoder(
         args.encoder,
@@ -143,7 +145,7 @@ def main():
     tmpdir = args.tmpdir if args.tmpdir else tempfile.mkdtemp()
     src_tok_file, src_bpe_file = prepare_data(args.src_file, tmpdir, args.src_lang, args.bpe_codes, verbose=args.verbose)
     tgt_tok_file, tgt_bpe_file = prepare_data(args.tgt_file, tmpdir, args.tgt_lang, args.bpe_codes, verbose=args.verbose)
-    filtered = clean_data_discrete(src_tok_file, tgt_tok_file, args.src_lang, args.tgt_lang)
+    filtered = clean_data_discrete(src_tok_file, tgt_tok_file, args.src_lang, args.tgt_lang, langid=args.langid, overlap=args.overlap)
     src_fh = open(src_bpe_file)
     tgt_fh = open(tgt_bpe_file)
     out_clean_idx = open(args.output_pref + '.idx_clean', 'wb')
