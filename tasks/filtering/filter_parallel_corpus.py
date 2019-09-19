@@ -162,7 +162,7 @@ def main():
             index = len(src_sents) * batch_id + k
             if index in filtered:
                 continue
-            if score < args.threshold and not all_symbols(src_sents[k].split()) and not all_symbols(tgt_sents[k].split()):
+            if score < args.threshold: # and not all_symbols(src_sents[k].split()) and not all_symbols(tgt_sents[k].split()):
                 filtered[index] = ERROR_TYPES['LASER']
             else:
                 batch_clean_indexes.append(index)
