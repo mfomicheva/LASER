@@ -26,6 +26,7 @@ ERROR_TYPES = {
     'LASER': 1,
     'LANGID': 2,
     'OVERLAP': 3,
+    'RATIO': 4,
 }
 
 LANGID = LanguageIdentifier.from_modelstring(model, norm_probs=True)
@@ -48,7 +49,7 @@ def prepare_data(infile, tmpdir, token_lang, bpe_codes, verbose=False):
     return tok_fname, bpe_fname
 
 
-def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang, langid=False, overlap=False):  # TODO: ignore strings consisting mostly of numbers
+def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang, langid=False, overlap=False, ratio=9):
     filtered = {}
     counter = 0
     for src, tgt in zip(open(src_file_tok), open(tgt_file_tok)):
@@ -56,6 +57,8 @@ def clean_data_discrete(src_file_tok, tgt_file_tok, src_lang, tgt_lang, langid=F
             continue
         if len(src) == 0 or len(tgt) == 0:
             filtered[counter] = ERROR_TYPES['EMPTY']
+        elif len(src) / len(tgt) > ratio or len(tgt) / len(src) > ratio:
+            filtered[counter] = ERROR_TYPES['RATIO']
         elif langid and (wrong_language(src, src_lang) or wrong_language(tgt, tgt_lang)):
             filtered[counter] = ERROR_TYPES['LANGID']
         elif overlap and compute_overlap(src, tgt) > 0.6:
@@ -185,7 +188,6 @@ def main():
 
     # TODO: to train the classifier, add missing / added operation
     # TODO: positive and negative data should not be the same
-    # TODO: add length ratio
     # TODO: when > 80% segments are not alpha compute character distance
 
 
