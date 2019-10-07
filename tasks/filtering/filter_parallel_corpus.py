@@ -139,6 +139,7 @@ def main():
     parser.add_argument('--threshold', default=0.85, type=float, required=False)
     parser.add_argument('--langid', default=False, action='store_true', required=False)
     parser.add_argument('--overlap', default=False, action='store_true', required=False)
+    parser.add_argument('--save_scores', default=None, required=False)
     args = parser.parse_args()
     encoder = SentenceEncoder(
         args.encoder,
@@ -153,6 +154,9 @@ def main():
     src_fh = open(src_bpe_file)
     tgt_fh = open(tgt_bpe_file)
     out_clean_idx = open(args.output_pref + '.idx_clean', 'wb')
+    out_scores = None
+    if args.save_scores is not None:
+        out_scores = open(args.save_scores, 'w')
     batch_id = 0
     for src_sents, tgt_sents in zip(
             buffered_read(src_fh, args.buffer_size), buffered_read(tgt_fh, args.buffer_size)):
@@ -164,6 +168,8 @@ def main():
         batch_clean_indexes = []
         for k, score in enumerate(sim_scores):
             index = len(src_sents) * batch_id + k
+            if out_scores is not None:
+                out_scores.write('{}\n'.format(score))
             if index in filtered:
                 continue
             if score < args.threshold: # and not all_symbols(src_sents[k].split()) and not all_symbols(tgt_sents[k].split()):
